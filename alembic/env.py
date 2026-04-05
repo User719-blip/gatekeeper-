@@ -21,6 +21,16 @@ load_dotenv()
 logger = logging.getLogger("alembic.env")
 
 
+def _normalize_database_url(url: str) -> str:
+    if url.startswith("postgresql+psycopg://"):
+        return url
+    if url.startswith("postgresql://"):
+        return url.replace("postgresql://", "postgresql+psycopg://", 1)
+    if url.startswith("postgres://"):
+        return url.replace("postgres://", "postgresql+psycopg://", 1)
+    return url
+
+
 def _build_connect_args(url: str) -> dict:
     if url.startswith("sqlite"):
         return {"check_same_thread": False}
@@ -29,6 +39,7 @@ def _build_connect_args(url: str) -> dict:
 
 
 def _can_connect(url: str) -> bool:
+    url = _normalize_database_url(url)
     try:
         test_engine = create_engine(
             url,
@@ -48,6 +59,10 @@ def _resolve_migration_db_url() -> str:
     primary_url = os.getenv("PRIMARY_DATABASE_URL") or os.getenv("DATABASE_URL")
     fallback_url = os.getenv("FALLBACK_DATABASE_URL", "sqlite:///./app.db")
     failover_enabled = os.getenv("DB_FAILOVER_ENABLED", "true").lower() == "true"
+
+    if primary_url:
+        primary_url = _normalize_database_url(primary_url)
+    fallback_url = _normalize_database_url(fallback_url)
 
     if primary_url and failover_enabled and primary_url != fallback_url:
         if _can_connect(primary_url):

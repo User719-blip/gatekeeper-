@@ -16,6 +16,16 @@ DB_FAILOVER_ENABLED = os.getenv("DB_FAILOVER_ENABLED", "true").lower() == "true"
 DB_CONNECT_TIMEOUT_SECONDS = int(os.getenv("DB_CONNECT_TIMEOUT_SECONDS", "3"))
 
 
+def _normalize_database_url(url: str) -> str:
+    if url.startswith("postgresql+psycopg://"):
+        return url
+    if url.startswith("postgresql://"):
+        return url.replace("postgresql://", "postgresql+psycopg://", 1)
+    if url.startswith("postgres://"):
+        return url.replace("postgres://", "postgresql+psycopg://", 1)
+    return url
+
+
 def _build_connect_args(url: str) -> dict:
     if url.startswith("sqlite"):
         return {"check_same_thread": False}
@@ -23,6 +33,7 @@ def _build_connect_args(url: str) -> dict:
 
 
 def _make_engine(url: str):
+    url = _normalize_database_url(url)
     return create_engine(
         url,
         future=True,
