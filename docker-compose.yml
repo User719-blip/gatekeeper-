@@ -1,0 +1,16 @@
+services:
+  api:
+    build: .
+    container_name: fastapi-auth-api
+    env_file:
+      - .env
+    environment:
+      FALLBACK_DATABASE_URL: sqlite:////app/data/app.db
+    ports:
+      - "8000:8000"
+    restart: unless-stopped
+    volumes:
+      - sqlite_data:/app/data
+
+volumes:
+  sqlite_data:
