@@ -1,9 +1,13 @@
 from logging.config import fileConfig
+import logging
+import os
 
-from sqlalchemy import engine_from_config
+from sqlalchemy import engine_from_config, create_engine, text
 from sqlalchemy import pool
+from sqlalchemy.exc import SQLAlchemyError
 
 from alembic import context
+from dotenv import load_dotenv
 
 from db.database import Base
 from db import models  # noqa: F401
@@ -12,11 +16,48 @@ target_metadata = Base.metadata
 # this is the Alembic Config object, which provides
 # access to the values within the .ini file in use.
 config = context.config
-import os
-from dotenv import load_dotenv
-load_dotenv()
 
-db_url = os.getenv("PRIMARY_DATABASE_URL") or os.getenv("DATABASE_URL")
+load_dotenv()
+logger = logging.getLogger("alembic.env")
+
+
+def _build_connect_args(url: str) -> dict:
+    if url.startswith("sqlite"):
+        return {"check_same_thread": False}
+    connect_timeout = int(os.getenv("DB_CONNECT_TIMEOUT_SECONDS", "3"))
+    return {"connect_timeout": connect_timeout}
+
+
+def _can_connect(url: str) -> bool:
+    try:
+        test_engine = create_engine(
+            url,
+            future=True,
+            pool_pre_ping=True,
+            connect_args=_build_connect_args(url),
+        )
+        with test_engine.connect() as conn:
+            conn.execute(text("SELECT 1"))
+        return True
+    except SQLAlchemyError as exc:
+        logger.warning("Alembic DB connectivity check failed for %s: %s", url, exc)
+        return False
+
+
+def _resolve_migration_db_url() -> str:
+    primary_url = os.getenv("PRIMARY_DATABASE_URL") or os.getenv("DATABASE_URL")
+    fallback_url = os.getenv("FALLBACK_DATABASE_URL", "sqlite:///./app.db")
+    failover_enabled = os.getenv("DB_FAILOVER_ENABLED", "true").lower() == "true"
+
+    if primary_url and failover_enabled and primary_url != fallback_url:
+        if _can_connect(primary_url):
+            return primary_url
+        logger.warning("Alembic falling back to local DB for migrations: %s", fallback_url)
+        return fallback_url
+
+    return primary_url or fallback_url
+
+db_url = _resolve_migration_db_url()
 if db_url:
     config.set_main_option("sqlalchemy.url", db_url)
 # Interpret the config file for Python logging.
