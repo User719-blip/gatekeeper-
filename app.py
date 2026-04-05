@@ -8,7 +8,11 @@ from fastapi.middleware.cors import CORSMiddleware
 
 from router.admin_router import admin_router
 from router.router import router
-from db.database import ACTIVE_DATABASE_URL
+
+
+def _database_label() -> str:
+    configured_url = os.getenv("PRIMARY_DATABASE_URL") or os.getenv("DATABASE_URL") or "sqlite:///./app.db"
+    return "Cloud (Supabase)" if "postgresql" in configured_url or "postgres" in configured_url else "Local (SQLite)"
 
 sentry_dsn = os.getenv("SENTRY_DSN")
 if sentry_dsn:
@@ -49,7 +53,7 @@ async def root():
     return {
         "message": "FastAPI Authentication System",
         "version": "1.0.0",
-        "database": "Cloud (Supabase)" if "postgresql" in ACTIVE_DATABASE_URL else "Local (SQLite)",
+        "database": _database_label(),
         "docs": "/docs",
     }
 
@@ -57,7 +61,7 @@ async def root():
 @app.get("/health")
 async def health():
     """Health check endpoint."""
-    return {"status": "healthy", "database": "Cloud" if "postgresql" in ACTIVE_DATABASE_URL else "Local"}
+    return {"status": "healthy", "database": "Cloud" if "Cloud" in _database_label() else "Local"}
 
 
 @app.post("/test-sentry-message")
