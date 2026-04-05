@@ -27,4 +27,4 @@ htmlcov/
 dist/
 build/
 alembic/versions/__pycache__/
-env.py
+/env.py
