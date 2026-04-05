@@ -54,8 +54,10 @@ docker run --rm -p 8000:8000 --env-file .env fastapi-auth-api
 The container startup command automatically runs migrations:
 
 ```bash
-alembic upgrade head && uvicorn app:app --host 0.0.0.0 --port 8000
+RUN_MIGRATIONS_ON_STARTUP=false uvicorn app:app --host 0.0.0.0 --port 8000
 ```
+
+By default, the container starts the API immediately and skips startup migrations so Railway healthchecks can succeed quickly. If you want migrations on boot, set `RUN_MIGRATIONS_ON_STARTUP=true`.
 
 ### Run with Docker Compose
 
